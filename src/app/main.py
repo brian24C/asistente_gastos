@@ -46,8 +46,8 @@ def lambda_handler(event, context):
             gasto["fecha"] = date.today().isoformat()
             logger.info(f"Fecha agregada automáticamente: {gasto['fecha']}")
 
-        if chat_id == 641045556:
-            gasto["quien"] = "User1"
+        if chat_id == 10dfdf6:
+            gasto["quien"] = "Brian"
         else:
             gasto["quien"] = "User2"
 
@@ -59,7 +59,7 @@ def lambda_handler(event, context):
         # 5️⃣ Responder en Telegram
         reply = (
             f"Registrado ✅\n"
-            f"{gasto['monto']} COP\n"
+            f"{gasto['monto']} PEN\n"
             f"Categoría: {gasto['categoria']}\n"
             f"Descripción: {gasto['descripcion']}\n"
             f"Fecha: {gasto['fecha']}\n"

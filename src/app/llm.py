@@ -1,20 +1,28 @@
 import json
 import os
+import logging
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 import dotenv
 import google.generativeai as gen
+from google.api_core import exceptions
 
 dotenv.load_dotenv()
 gen.configure(api_key=os.environ["GEMINI_API_KEY"])
-print(os.environ["GEMINI_API_KEY"])
-TZ = ZoneInfo("America/Bogota")
+TZ = ZoneInfo("America/Lima")
 
-MODEL = "models/gemini-2.0-flash"
+logger = logging.getLogger()
+
+# Lista de modelos en orden de preferencia (fallback automático)
+MODELS = [
+    "models/gemini-2.5-flash",      # 20 requests/día (gratis)
+    "models/gemini-2.5-flash-lite", # Más cuota disponible
+    "models/gemini-3-flash",      # Alternativa estable
+]
 
 SYSTEM_PROMPT = """
-Eres un extractor de información. Devuelves SOLO JSON válido, sin texto adicional, sin ```.
+Eres un extractor de información de gastos. Devuelves SOLO JSON válido, sin texto adicional, sin ```.
 
 El JSON DEBE ser exactamente este:
 {
@@ -24,27 +32,60 @@ El JSON DEBE ser exactamente este:
   "fecha": "YYYY-MM-DD" | null
 }
 
-Reglas:
-- NO inventes fechas.
-- Si el usuario NO menciona una fecha explícita (o relativa), devuelve "fecha": null.
-- Categorías permitidas: servicios domesticos, gastos, comida, transporte, mercado, ocio, salud, otros.
+CATEGORÍAS (elige la más apropiada):
+- "comida": restaurantes, delivery, cafeterías, snacks, bebidas, comida rápida
+- "mercado": supermercado, tienda, abarrotes, compras de alimentos para cocinar
+- "transporte": taxi, uber, bus, gasolina, estacionamiento, peajes, pasajes
+- "servicios domesticos": luz, agua, gas, internet, teléfono, cable, alquiler
+- "salud": farmacia, médico, dentista, seguro, medicinas, consultas
+- "ocio": cine, conciertos, entretenimiento, juegos, suscripciones (Netflix, Spotify)
+- "gastos": compras generales, ropa, tecnología, artículos del hogar
+- "otros": cualquier gasto que no encaje en las categorías anteriores
+
+REGLAS:
+- Categoriza inteligentemente: "pizza" → "comida", "supermercado" → "mercado", "uber" → "transporte".
 - No incluyas comentarios, explicaciones ni texto fuera del JSON.
 """
 
+
 def parse_gasto(texto):
     prompt = SYSTEM_PROMPT + "\nUsuario: " + texto
+    
+    # Intentar con cada modelo hasta que uno funcione
+    last_error = None
+    
+    for model_name in MODELS:
+        try:
+            logger.info(f"Intentando con modelo: {model_name}")
+            
+            response = gen.GenerativeModel(
+                model_name,
+                generation_config={
+                    "response_mime_type": "application/json"
+                },
+            ).generate_content(prompt)
 
-    response = gen.GenerativeModel(
-        MODEL,
-        generation_config={
-            "response_mime_type": "application/json"   # <-- LA CLAVE
-        },
-    ).generate_content(prompt)
-
-    data = json.loads(response.text)
-
-    # Set default date
-    if not data.get("fecha"):
-        data["fecha"] = date.today().isoformat()
-
-    return data
+            data = json.loads(response.text)
+            
+            # Set default date
+            if not data.get("fecha"):
+                data["fecha"] = date.today().isoformat()
+            
+            logger.info(f"✅ Éxito con modelo: {model_name}")
+            return data
+            
+        except exceptions.ResourceExhausted as e:
+            # Cuota agotada, intentar con el siguiente modelo
+            logger.warning(f"⚠️ Cuota agotada para {model_name}: {str(e)}")
+            last_error = e
+            continue
+            
+        except Exception as e:
+            # Otro tipo de error, intentar con el siguiente modelo
+            logger.warning(f"⚠️ Error con {model_name}: {str(e)}")
+            last_error = e
+            continue
+    
+    # Si llegamos aquí, todos los modelos fallaron
+    logger.error(f"❌ Todos los modelos fallaron. Último error: {last_error}")
+    raise RuntimeError(f"No se pudo procesar el gasto. Todos los modelos fallaron. Último error: {last_error}")

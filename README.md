@@ -86,6 +86,8 @@ GOOGLE_SHEET_ID=<id_de_tu_hoja>
 GOOGLE_CREDENTIALS_JSON=<json_base64_credenciales_servicio>
 ```
 
+> 💡 **Nota**: `GOOGLE_CREDENTIALS_JSON` debe contener el JSON de tu Service Account ya codificado en Base64. El módulo de Terraform lo configurará en la Lambda como `GOOGLE_CREDENTIALS_JSON_BASE64` automáticamente. Ver [infraestructure/DEPLOY.md](./infraestructure/DEPLOY.md) para más detalles.
+
 ---
 
 ## 🧪 Prueba Local
@@ -165,20 +167,32 @@ aws logs tail /aws/lambda/asistente-gastos --region <AWS_REGION> --since 5m --fo
 
 ## 🧱 Terraform + Terragrunt
 
-```hcl
-module "lambda_function" {
-  source   = "../../modules/lambda_function"
-  function_name  = "asistente-gastos"
-  image_uri      = "<AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/asistente-gastos:<versión>"
+Para desplegar la infraestructura con Terragrunt, sigue la **[Guía de Despliegue completa](./infraestructure/DEPLOY.md)**.
 
-  environment_variables = {
-    TELEGRAM_BOT_TOKEN      = get_env("TELEGRAM_BOT_TOKEN")
-    GEMINI_API_KEY          = get_env("GEMINI_API_KEY")
-    GOOGLE_SHEET_ID         = get_env("GOOGLE_SHEET_ID")
-    GOOGLE_CREDENTIALS_JSON = get_env("GOOGLE_CREDENTIALS_JSON")
-  }
-}
-```
+### Resumen Rápido
+
+1. **Configurar variables de entorno**:
+   ```powershell
+   $env:TELEGRAM_BOT_TOKEN = "tu_token"
+   $env:GEMINI_API_KEY = "tu_clave"
+   $env:GOOGLE_SHEET_ID = "id_hoja"
+   $env:GOOGLE_CREDENTIALS_JSON = "json_base64"
+   ```
+
+2. **Ejecutar Terragrunt**:
+   ```bash
+   cd infraestructure/prod/lamda
+   terragrunt init
+   terragrunt plan
+   terragrunt apply
+   ```
+
+3. **Obtener la URL de la Lambda**:
+   ```bash
+   terragrunt output function_url
+   ```
+
+> 📖 **Documentación completa**: Ver [infraestructure/DEPLOY.md](./infraestructure/DEPLOY.md) para instrucciones detalladas, solución de problemas y más información.
 
 ---
 
