@@ -18,7 +18,6 @@ logger = logging.getLogger()
 MODELS = [
     "models/gemini-2.5-flash",      # 20 requests/día (gratis)
     "models/gemini-2.5-flash-lite", # Más cuota disponible
-    "models/gemini-3-flash",      # Alternativa estable
 ]
 
 SYSTEM_PROMPT = """
@@ -28,8 +27,7 @@ El JSON DEBE ser exactamente este:
 {
   "monto": float,
   "categoria": string,
-  "descripcion": string,
-  "fecha": "YYYY-MM-DD" | null
+  "descripcion": string
 }
 
 CATEGORÍAS (elige la más apropiada):
@@ -67,9 +65,8 @@ def parse_gasto(texto):
 
             data = json.loads(response.text)
             
-            # Set default date
-            if not data.get("fecha"):
-                data["fecha"] = date.today().isoformat()
+            # Siempre asignar la fecha actual de Lima, Perú (ignorar cualquier fecha que devuelva la IA)
+            data["fecha"] = datetime.now(TZ).date().isoformat()
             
             logger.info(f"✅ Éxito con modelo: {model_name}")
             return data

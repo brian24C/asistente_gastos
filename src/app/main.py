@@ -1,11 +1,11 @@
 import json
 import logging
 import os
-from datetime import date
+from datetime import datetime
 
 import requests
 
-from .llm import parse_gasto
+from .llm import parse_gasto, TZ
 from .sheets import append_gasto
 
 # === Configuración de logging ===
@@ -41,10 +41,10 @@ def lambda_handler(event, context):
         gasto = parse_gasto(message)
         logger.info(f"Resultado parseo: {gasto}")
 
-        # 3️⃣ Agregar fecha si no existe
+        # 3️⃣ Agregar fecha si no existe (usando zona horaria de Lima, Perú)
         if not gasto.get("fecha"):
-            gasto["fecha"] = date.today().isoformat()
-            logger.info(f"Fecha agregada automáticamente: {gasto['fecha']}")
+            gasto["fecha"] = datetime.now(TZ).date().isoformat()
+            logger.info(f"Fecha agregada automáticamente (Lima, Perú): {gasto['fecha']}")
 
         if chat_id == 10dfdf6:
             gasto["quien"] = "Brian"
